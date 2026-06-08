@@ -30,22 +30,25 @@
 ```bash
 git clone https://github.com/your-username/codelife-ai-outreach.git
 cd codelife-ai-outreach
-2. Install dependencies
+
+### 2. Install dependencies
 Bashnpm install
-3. Set up environment variables
+
+### 3. Set up environment variables
 Copy the example environment file:
 Bashcp .env.example .env.local
 Then fill in the required values (see Environment Variables section below).
-4. Run database migrations & generate Prisma client
+### 4. Run database migrations & generate Prisma client
 Bashnpx prisma generate
 npx prisma migrate dev
-5. Start the development server
+### 5. Start the development server
 Bashnpm run dev
 The app will be available at http://localhost:3000.
 Environment Variables
 Create a .env.local file with the following variables:
 VariableDescriptionRequiredDATABASE_URLSupabase connection stringYesDIRECT_URLSupabase direct connection stringYesNEXT_PUBLIC_SUPABASE_URLSupabase project URLYesSUPABASE_SERVICE_ROLE_KEYSupabase service role keyYesNEXT_PUBLIC_CLERK_PUBLISHABLE_KEYClerk Publishable KeyYesCLERK_SECRET_KEYClerk Secret KeyYesGOOGLE_CLIENT_IDGoogle OAuth Client IDYesGOOGLE_CLIENT_SECRETGoogle OAuth Client SecretYesMICROSOFT_CLIENT_IDMicrosoft Azure App Client IDYesMICROSOFT_CLIENT_SECRETMicrosoft Azure App Client SecretYesNEXT_PUBLIC_APP_URLYour app URL (e.g. http://localhost:3000)Yes
-How It Works (High-Level Flow)
+
+### How It Works (High-Level Flow)
 
 User logs in using Clerk.
 Connects email account (Gmail or Microsoft).
@@ -57,7 +60,7 @@ Reviews and approves drafts (human approval required).
 Sends emails through the connected email account.
 Tracks sent emails and updates contact status.
 
-Deployment
+### Deployment
 This project is optimized for deployment on Vercel.
 Recommended Deployment Steps
 
