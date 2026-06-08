@@ -30,37 +30,56 @@
 ```bash
 git clone https://github.com/your-username/codelife-ai-outreach.git
 cd codelife-ai-outreach
-2. Install dependencies
-Bashnpm install
-3. Set up environment variables
+```
+### 2. Install dependencies
+```bash
+npm install
+```
+### 3. Set up environment variables
 Copy the example environment file:
-Bashcp .env.example .env.local
+```bash
+cp .env.example .env.local
+```
 Then fill in the required values (see Environment Variables section below).
-4. Run database migrations & generate Prisma client
-Bashnpx prisma generate
+### 4. Run database migrations & generate Prisma client
+```bash npx prisma generate
 npx prisma migrate dev
+```
 5. Start the development server
-Bashnpm run dev
+```bash npm run dev
 The app will be available at http://localhost:3000.
-Environment Variables
+```
+## Environment Variables
 Create a .env.local file with the following variables:
-VariableDescriptionRequiredDATABASE_URLSupabase connection stringYesDIRECT_URLSupabase direct connection stringYesNEXT_PUBLIC_SUPABASE_URLSupabase project URLYesSUPABASE_SERVICE_ROLE_KEYSupabase service role keyYesNEXT_PUBLIC_CLERK_PUBLISHABLE_KEYClerk Publishable KeyYesCLERK_SECRET_KEYClerk Secret KeyYesGOOGLE_CLIENT_IDGoogle OAuth Client IDYesGOOGLE_CLIENT_SECRETGoogle OAuth Client SecretYesMICROSOFT_CLIENT_IDMicrosoft Azure App Client IDYesMICROSOFT_CLIENT_SECRETMicrosoft Azure App Client SecretYesNEXT_PUBLIC_APP_URLYour app URL (e.g. http://localhost:3000)Yes
-How It Works (High-Level Flow)
+| Variable | Description | Required |
+| :--- | :--- | :---: |
+| `DATABASE_URL` | Supabase connection string | **Yes** |
+| `DIRECT_URL` | Supabase direct connection string | **Yes** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | **Yes** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | **Yes** |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk Publishable Key | **Yes** |
+| `CLERK_SECRET_KEY` | Clerk Secret Key | **Yes** |
+| `GOOGLE_CLIENT_ID` | Google OAuth Client ID | **Yes** |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret | **Yes** |
+| `MICROSOFT_CLIENT_ID` | Microsoft Azure App Client ID | **Yes** |
+| `MICROSOFT_CLIENT_SECRET` | Microsoft Azure App Client Secret | **Yes** |
+| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g., `http://localhost:3000`) | **Yes** |
 
-User logs in using Clerk.
-Connects email account (Gmail or Microsoft).
-Creates a campaign and selects target country + focus area.
-Discovers institutions and saves them.
-Discovers contacts (professors/staff) with AI fit scoring.
-Generates email drafts using AI + template.
-Reviews and approves drafts (human approval required).
-Sends emails through the connected email account.
-Tracks sent emails and updates contact status.
+## How It Works (High-Level Flow)
+- User logs in using Clerk.
+- Connects email account (Gmail or Microsoft).
+- Creates a campaign and selects target country + focus area.
+- Discovers institutions and saves them.
+- Discovers contacts (professors/staff) with AI fit scoring.
+- Generates email drafts using AI + template.
+- Reviews and approves drafts (human approval required).
+- Sends emails through the connected email account.
+- Tracks sent emails and updates contact status.
 
-Deployment
+## Deployment
 This project is optimized for deployment on Vercel.
-Recommended Deployment Steps
 
+## Recommended Deployment Steps
 Push your code to GitHub.
 Import the repository into Vercel.
 Add all required environment variables in Vercel.
@@ -68,8 +87,10 @@ Update OAuth redirect URIs in Google Cloud Console and Azure Portal with your pr
 Deploy.
 
 Note: Make sure to use Production Clerk keys (pk_live_...) when deploying to production.
-Project Structure
-textsrc/
+
+## Project Structure
+```text
+src/
 ├── app/                    # Next.js App Router
 ├── components/             # Reusable UI components
 ├── lib/                    # Utility functions, email providers, AI client
