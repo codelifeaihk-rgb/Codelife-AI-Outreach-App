@@ -1,0 +1,313 @@
+// Prisma schema for CodeLife Outreach (PostgreSQL). Defines persistence for campaigns,
+// institutions, contacts, email workflow, tracking, do-not-contact, and Clerk-linked users.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- App domain (PRD core tables) ---
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique @map("clerk_id")
+  name          String?
+  email         String    @unique
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  emailAccounts EmailAccount[]
+  campaigns     Campaign[]
+  contacts      Contact[]
+  templates     EmailTemplate[]
+  doNotContact  DoNotContact[]
+  sentEmails    SentEmail[]
+
+  @@map("users")
+}
+
+/// Connected Gmail / Google Workspace sender used for approved outbound mail.
+model EmailAccount {
+  id                  String    @id @default(cuid())
+  userId              String    @map("user_id")
+  provider            String
+  providerAccountId   String    @map("provider_account_id")
+  email               String
+  displayName         String?   @map("display_name")
+  refreshToken        String?   @map("refresh_token") @db.Text
+  accessToken         String?   @map("access_token") @db.Text
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
+  scope               String?   @db.Text
+  tokenType           String?   @map("token_type")
+  isDefault           Boolean   @default(false) @map("is_default")
+  status              String    @default("connected")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentEmails SentEmail[]
+
+  @@unique([userId, email])
+  @@map("email_accounts")
+}
+
+// Stores AI provider configuration — editable from the app UI
+model AiConfig {
+  id        String   @id @default(cuid())
+  provider  String   @default("glm")
+  baseUrl   String   @map("base_url")
+  apiKey    String   @map("api_key")
+  model     String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_config")
+}
+
+// Stores search provider configuration — editable from the app UI
+model SearchConfig {
+  id        String   @id @default(cuid())
+  provider  String   @default("tavily")
+  apiKey    String   @map("api_key")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("search_config")
+}
+
+model Campaign {
+  id                 String       @id @default(cuid())
+  userId             String       @map("user_id")
+  name               String
+  audienceMode       AudienceMode @map("audience_mode")
+  targetInstitution  String?      @map("target_institution")
+  targetCountry      String       @map("target_country")
+  targetDepartment   String?      @map("target_department")
+  schoolType         String?      @map("school_type")
+  targetLanguage     String?      @map("target_language")
+  complianceMode     Boolean      @default(true) @map("compliance_mode")
+  status             String       @default("draft")
+  baseTemplateId     String?      @map("base_template_id")
+  notes              String?      @db.Text
+  archivedAt         DateTime?    @map("archived_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baseTemplate  EmailTemplate? @relation("CampaignBaseTemplate", fields: [baseTemplateId], references: [id], onDelete: SetNull)
+  universities  University[]
+  departments   Department[]
+  contacts      Contact[]
+  drafts        EmailDraft[]
+  sentEmails    SentEmail[]
+
+  @@index([userId])
+  @@map("campaigns")
+}
+
+/// Finder selections and recommendations; rows are scoped to a campaign (MVP).
+/// `institutionKind` distinguishes university vs secondary school records in the same table.
+model University {
+  id                 String   @id @default(cuid())
+  campaignId         String   @map("campaign_id")
+  name               String
+  country            String
+  websiteUrl         String?  @map("website_url")
+  institutionKind    String   @default("university") @map("institution_kind")
+  ranking            Int?
+  biomedicalStrength Int?     @map("biomedical_strength")
+  biotechActivity    Int?     @map("biotech_activity")
+  aiHealthtechFocus  Int?     @map("ai_healthtech_focus")
+  stemStrength       Int?     @map("stem_strength")
+  innovationFocus    Int?     @map("innovation_focus")
+  competitionReady   Int?     @map("competition_ready")
+  recommendationNote String?  @map("recommendation_note") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  campaign    Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  departments Department[]
+
+  @@index([campaignId])
+  @@map("universities")
+}
+
+model Department {
+  id                 String   @id @default(cuid())
+  campaignId         String   @map("campaign_id")
+  universityId       String?  @map("university_id")
+  name               String
+  departmentType     String?  @map("department_type")
+  recommendationNote String?  @map("recommendation_note") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  university University? @relation(fields: [universityId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([universityId])
+  @@map("departments")
+}
+
+model Contact {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  campaignId       String    @map("campaign_id")
+  fullName         String    @map("full_name")
+  email            String?
+  role             String?
+  institutionName  String?   @map("institution_name")
+  department       String?
+  fitScore         Decimal?  @map("fit_score") @db.Decimal(5, 2)
+  fitExplanation   String?   @map("fit_explanation") @db.Text
+  isDecisionMaker  Boolean   @default(false) @map("is_decision_maker")
+  leadStatus       String    @default("discovered") @map("lead_status")
+  notes            String?   @db.Text
+  followUpAt       DateTime? @map("follow_up_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign     Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sources      ContactSource[]
+  drafts       EmailDraft[]
+  sentEmails   SentEmail[]
+
+  @@index([userId])
+  @@index([campaignId])
+  @@map("contacts")
+} 
+
+/// Public provenance for a contact; at least one row with `sourceUrl` is expected in the app layer.
+model ContactSource {
+  id         String   @id @default(cuid())
+  contactId  String   @map("contact_id")
+  sourceUrl  String   @map("source_url")
+  sourceType String?  @map("source_type")
+  title      String?
+  snippet    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_sources")
+}
+
+model EmailTemplate {
+  id            String        @id @default(cuid())
+  userId        String        @map("user_id")
+  name          String
+  subject       String
+  bodyHtml      String        @map("body_html") @db.Text
+  bodyText      String?       @map("body_text") @db.Text
+  audienceMode  AudienceMode? @map("audience_mode")
+  isDefault     Boolean       @default(false) @map("is_default")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drafts             EmailDraft[]
+  campaignsAsBase    Campaign[] @relation("CampaignBaseTemplate")
+
+  @@index([userId])
+  @@map("email_templates")
+}
+
+model EmailDraft {
+  id                     String    @id @default(cuid())
+  campaignId             String    @map("campaign_id")
+  contactId              String    @map("contact_id")
+  templateId             String?   @map("template_id")
+  subject                String
+  bodyHtml               String    @map("body_html") @db.Text
+  bodyText               String?   @map("body_text") @db.Text
+  status                 String    @default("draft")
+  personalizationReason  String?   @map("personalization_reason") @db.Text
+  qualityScore           Json?     @map("quality_score")
+  targetLanguage         String?   @map("target_language")
+  version                Int       @default(1)
+  approvedAt             DateTime? @map("approved_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact  Contact        @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  sentEmails SentEmail[]
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@map("email_drafts")
+}
+
+model SentEmail {
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  campaignId         String    @map("campaign_id")
+  contactId          String    @map("contact_id")
+  emailAccountId     String    @map("email_account_id")
+  draftId            String?   @map("draft_id")
+  recipientEmail     String    @map("recipient_email")
+  subject            String
+  bodyHtml           String    @map("body_html") @db.Text
+  providerMessageId  String?   @map("provider_message_id")
+  status             String    @default("sent")
+  notes              String?   @db.Text
+  audit              Json?
+  sentAt             DateTime  @default(now()) @map("sent_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact      Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Restrict)
+  draft        EmailDraft?  @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  events       EmailEvent[]
+
+  @@index([userId])
+  @@index([campaignId])
+  @@index([contactId])
+  @@map("sent_emails")
+}
+
+model EmailEvent {
+  id          String   @id @default(cuid())
+  sentEmailId String   @map("sent_email_id")
+  eventType   String   @map("event_type")
+  metadata    Json?
+  occurredAt  DateTime @default(now()) @map("occurred_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sentEmail SentEmail @relation(fields: [sentEmailId], references: [id], onDelete: Cascade)
+
+  @@index([sentEmailId])
+  @@map("email_events")
+}
+
+model DoNotContact {
+  id        String   @id @default(cuid())
+  userId    String    @map("user_id")
+  email     String
+  reason    String?
+  source    String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email])
+  @@map("do_not_contact")
+}
+
+enum AudienceMode {
+  university
+  school
+}
