@@ -1,57 +1,54 @@
-// Root layout for the App Router — fonts, global styles, and Clerk session provider.
+// src/app/layout.tsx
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Noto_Sans, Playfair_Display } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { cn } from "@/lib/utils";
-
-const playfairDisplayHeading = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-heading",
-});
-
-const notoSans = Noto_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { ClerkProvider } from "@clerk/nextjs";
+import { ThemeProvider } from "@/src/components/theme/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "CodeLife Outreach",
-  description: "Compliant AI-assisted outreach for CodeLife.ai",
+  description: "AI-powered outreach platform by CodeLife.ai",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html
-      lang="en"
-      className={cn(
-        "h-full",
-        "antialiased",
-        geistSans.variable,
-        geistMono.variable,
-        "font-sans",
-        notoSans.variable,
-        playfairDisplayHeading.variable
-      )}
-    >
-      <body className="min-h-full flex flex-col">
-        <ClerkProvider>{children}</ClerkProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <head />
+        <body>
+          {/* Prevents transition flash on initial theme load */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  try {
+                    var theme = localStorage.getItem('codelife-theme') || 'light';
+                    if (theme === 'dark') {
+                      document.documentElement.classList.add('dark');
+                    }
+                    // Add theme-ready after a tick to enable transitions
+                    setTimeout(function() {
+                      document.documentElement.classList.add('theme-ready');
+                    }, 0);
+                  } catch(e) {}
+                })();
+              `,
+            }}
+          />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem={false}
+            storageKey="codelife-theme"
+          >
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
