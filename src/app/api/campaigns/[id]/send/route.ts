@@ -15,6 +15,18 @@ import { prisma } from "@/src/lib/db";
 import { requireDbUser } from "@/src/lib/clerk-user";
 import { sendEmail } from "@/src/lib/email-providers/send";
 
+// Add this function before the POST handler in send/route.ts
+function injectTrackingPixel(html: string, sentEmailId: string, baseUrl: string): string {
+  const pixel = `<img src="${baseUrl}/api/track/open?id=${sentEmailId}" width="1" height="1" style="display:none;" alt="" />`;
+
+  // Insert before closing body tag
+  if (html.includes("</body>")) {
+    return html.replace("</body>", `${pixel}</body>`);
+  }
+  // Fallback — append at end
+  return html + pixel;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -204,6 +216,19 @@ export async function POST(
           messageId: sendResult.messageId,
         },
       },
+    });
+
+    // Relocated Code Block: After sentEmail is created, update with tracking pixel
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const htmlWithTracking = injectTrackingPixel(
+      draft.bodyHtml,
+      sentEmail.id,
+      baseUrl
+    );
+
+    await prisma.sentEmail.update({
+      where: { id: sentEmail.id },
+      data: { bodyHtml: htmlWithTracking },
     });
 
     // ── Step 8: Update draft status to "sent" ──────────────────────────────
